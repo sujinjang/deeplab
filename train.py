@@ -1,9 +1,9 @@
 # Benchmarking TensorFlow DeepLab on PASCAL VOC dataset
 import argparse
-
+import os
 import numpy as np
-# import common
 import tensorflow as tf
+import common
 import models
 from image_utils import ImageReader
 
@@ -27,12 +27,10 @@ _NUM_IMAGES = {
 def main():
 
     model_params={
-          'path_to_data': FLAGS.path_to_data,
-          'path_to_label': FLAGS.path_to_label,
           'input_size': FLAGS.input_size,
           'output_stride': FLAGS.output_stride,
           'batch_size': FLAGS.batch_size,
-          'base_architecture': FLAGS.base_architecture,
+          'train_epochs': FLAGS.train_epochs,
           'pre_trained_model_path': FLAGS.pre_trained_model_path,
           'pre_trained_model_name': FLAGS.pre_trained_model_name,
           'batch_norm_decay': _BATCH_NORM_DECAY,
@@ -55,34 +53,35 @@ def main():
     graph = tf.Graph()
     with graph.as_default():
 
-        # Prepare mini batch readers
-        img_reader = ImageReader(model_params['path_to_data'], model_params['input_size'], 'jpg')
-        label_reader = ImageReader(model_params['path_to_label'], model_params['input_size'], 'png')
+        ### Load image file names of training and validation set
+        img_list_train = common.read_filenames_from_txt(os.path.join(FLAGS.path_to_filelist, 'raw_train.txt'))
+        img_list_valid = common.read_filenames_from_txt(os.path.join(FLAGS.path_to_filelist, 'raw_valid.txt'))
+        label_list_train = common.read_filenames_from_txt(os.path.join(FLAGS.path_to_filelist, 'label_train.txt'))
+        label_list_valid = common.read_filenames_from_txt(os.path.join(FLAGS.path_to_filelist, 'label_valid.txt'))
 
-        img_samples = img_reader.load_images(img_reader.name_list[-10:])
-        img_samples = np.reshape(img_samples, [10, 513, 513, 3])
-        img_labels = label_reader.load_images(label_reader.name_list[-10:])
-        img_labels = np.reshape(img_labels, [10, 513, 513, 1])
-
-        # Processing images (e.g., mean subtraction)
-
-        # Build image input/output tensor TODO: Left here
+        ### Build image input/output tensor
         inputs = models.build_input_tensor(model_params['input_size'])
         labels = models.build_label_tensor(model_params['input_size'])
 
-        # Build DeepLab network
+        ### Build DeepLab network
         train_op, loss, predictions = models.build_deeplabv3_model_fn(inputs=inputs,
                                                                       labels=labels,
                                                                       is_training=True,
                                                                       model_params=model_params)
 
+        ### Initialize TF variables and session
         init_op = tf.global_variables_initializer()
         sess = tf.Session()
         sess.run(init_op)
 
-        _, loss_val, pred_val = sess.run([train_op, loss, predictions],
-                 feed_dict={inputs:img_samples, labels:img_labels})
-        print(loss_val)
+        ### Run training loop
+        n_steps_per_epoch = int(len(img_list_train) / model_params['batch_size'])
+        n_last_batch = len(img_list_train) - model_params['batch_size']* n_steps_per_epoch
+        for epoch in range(model_params['train_epochs']):
+            samples = image_utils.
+        # _, loss_val, pred_val = sess.run([train_op, loss, predictions],
+        #          feed_dict={inputs:img_samples, labels:img_labels})
+        # print(loss_val)
 
 
 
@@ -94,8 +93,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--model_dir', type=str, default='./model',
                         help='Base directory for the outpu model.')
-    parser.add_argument('--path_to_data', type=str, default='./datasets/JPEGImages')
-    parser.add_argument('--path_to_label', type=str, default='./datasets/SegmentationClassRaw')
+    parser.add_argument('--path_to_filelist', type=str, default='./datasets/pascal_voc_seg/VOCdevkit/VOC2012/DataList')
+    # parser.add_argument('--path_to_data', type=str, default='./datasets/JPEGImages')
+    # parser.add_argument('--path_to_label', type=str, default='./datasets/SegmentationClassRaw')
 
     parser.add_argument('--clean_model_dir', action='store_true',
                         help='Whether to clean up the model directory if present.')
@@ -130,10 +130,6 @@ if __name__ == '__main__':
 
     parser.add_argument('--data_dir', type=str, default='./dataset/',
                         help='Path to the directory containing the PASCAL VOC data tf record.')
-
-    parser.add_argument('--base_architecture', type=str, default='resnet_v2_101',
-                        choices=['resnet_v2_50', 'resnet_v2_101'],
-                        help='The architecture of base Resnet building block.')
 
     parser.add_argument('--pre_trained_model_path', type=str, default='./pretrained/resnet_v2_101/resnet_v2_101.ckpt',
                         help='Path to the pre-trained model checkpoint.')
