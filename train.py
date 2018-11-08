@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import common
 import models
-from image_utils import ImageReader
+import image_utils
 
 
 _NUM_CLASSES = 21
@@ -60,12 +60,12 @@ def main():
         label_list_valid = common.read_filenames_from_txt(os.path.join(FLAGS.path_to_filelist, 'label_valid.txt'))
 
         ### Build image input/output tensor
-        inputs = models.build_input_tensor(model_params['input_size'])
-        labels = models.build_label_tensor(model_params['input_size'])
+        inputs_ph = models.build_input_tensor(model_params['input_size'])
+        labels_ph = models.build_label_tensor(model_params['input_size'])
 
         ### Build DeepLab network
-        train_op, loss, predictions = models.build_deeplabv3_model_fn(inputs=inputs,
-                                                                      labels=labels,
+        train_op, loss, predictions = models.build_deeplabv3_model_fn(inputs=inputs_ph,
+                                                                      labels=labels_ph,
                                                                       is_training=True,
                                                                       model_params=model_params)
 
@@ -74,18 +74,37 @@ def main():
         sess = tf.Session()
         sess.run(init_op)
 
-        ### Run training loop
+        ### Schedule epochs and steps
         n_steps_per_epoch = int(len(img_list_train) / model_params['batch_size'])
-        n_last_batch = len(img_list_train) - model_params['batch_size']* n_steps_per_epoch
+        n_last_batch = len(img_list_train) - model_params['batch_size']*n_steps_per_epoch
+        if n_last_batch:
+            n_steps_per_epoch += 1
+
+        ### Run training loop
         for epoch in range(model_params['train_epochs']):
-            samples = image_utils.
-        # _, loss_val, pred_val = sess.run([train_op, loss, predictions],
-        #          feed_dict={inputs:img_samples, labels:img_labels})
-        # print(loss_val)
+            for step in range(n_steps_per_epoch):
+                # Indices for batch
+                if n_last_batch and step==n_steps_per_epoch-1:
+                    start_idx = step * model_params['batch_size']
+                    end_idx = step * model_params['batch_size'] + n_last_batch
+                else:
+                    start_idx = step*model_params['batch_size']
+                    end_idx = step*model_params['batch_size'] + model_params['batch_size']
 
+                # Get sample and labels
+                samples = image_utils.load_images(file_list=img_list_train[start_idx:end_idx],
+                                                  input_size=model_params['input_size'],
+                                                  interpolation='BILINEAR')
+                samples = np.reshape(samples, newshape=[-1, model_params['input_size'], model_params['input_size'], 3])
+                labels = image_utils.load_images(file_list=label_list_train[start_idx:end_idx],
+                                                 input_size=model_params['input_size'],
+                                                 interpolation='NEAREST')
+                labels = np.reshape(labels, newshape=[-1, model_params['input_size'], model_params['input_size'], 1])
 
-
-
+                # Run parameter training
+                _, loss_val, pred_list = sess.run([train_op, loss, predictions],
+                                                  feed_dict={inputs_ph:samples, labels_ph:labels})
+                print("Epoch:{}/{}, Step:{}/{}, Loss:{}".format(epoch+1, model_params['train_epochs'], step+1, n_steps_per_epoch, loss_val))
 
 
 if __name__ == '__main__':
@@ -94,8 +113,6 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default='./model',
                         help='Base directory for the outpu model.')
     parser.add_argument('--path_to_filelist', type=str, default='./datasets/pascal_voc_seg/VOCdevkit/VOC2012/DataList')
-    # parser.add_argument('--path_to_data', type=str, default='./datasets/JPEGImages')
-    # parser.add_argument('--path_to_label', type=str, default='./datasets/SegmentationClassRaw')
 
     parser.add_argument('--clean_model_dir', action='store_true',
                         help='Whether to clean up the model directory if present.')
@@ -128,10 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_iter', type=int, default=30000,
                         help='Number of maximum iteration used for "poly" learning rate policy.')
 
-    parser.add_argument('--data_dir', type=str, default='./dataset/',
-                        help='Path to the directory containing the PASCAL VOC data tf record.')
-
-    parser.add_argument('--pre_trained_model_path', type=str, default='./pretrained/resnet_v2_101/resnet_v2_101.ckpt',
+    parser.add_argument('--pre_trained_model_path', type=str, default='./pretrained_models/resnet_v2_101/resnet_v2_101.ckpt',
                         help='Path to the pre-trained model checkpoint.')
 
     parser.add_argument('--pre_trained_model_name', type=str,

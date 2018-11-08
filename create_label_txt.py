@@ -1,9 +1,6 @@
 import argparse
 import os
-import numpy as np
-from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
-from image_utils import ImageReader
 import common
 
 

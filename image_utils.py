@@ -35,30 +35,26 @@ def decode_labels(mask, num_images=1, num_classes=21):
         outputs[i] = np.array(img)
     return outputs
 
+# class ImageReader(object):
+#     def __init__(self, img_dir, input_size, img_type="jpg", ignore_label=None):
+#         self.img_dir = img_dir  # path/to/images
+#         self.name_list = []  # list of file names
+#         self.img_type = img_type  # image format (e.g., JPEG, PNG)
+#         self.input_size = input_size  # [width, height]
+#         self.ignore_label = ignore_label  # class number to ignore in ground-truth image
 
+def load_images(file_list, input_size, interpolation='NEAREST', resize=True):
+    images = []
+    for name in file_list:
+        img = Image.open(name)
 
-class ImageReader(object):
-    def __init__(self, img_dir, input_size, img_type="jpg", ignore_label=None):
-        self.img_dir = img_dir  # path/to/images
-        self.name_list = []  # list of file names
-        self.img_type = img_type  # image format (e.g., JPEG, PNG)
-        self.input_size = input_size  # [width, height]
-        self.ignore_label = ignore_label  # class number to ignore in ground-truth image
+        if resize:
+            if interpolation == 'NEAREST':
+                img = img.resize([input_size, input_size], resample=Image.NEAREST)
+            else:
+                img = img.resize([input_size, input_size], resample=Image.BILINEAR)
 
+        img = np.array(img)
+        images.append(img)
 
-
-    def load_images(self, file_list, interpolation='NEAREST', resize=True):
-        images = []
-        for name in file_list:
-            img = Image.open(name)
-
-            if resize:
-                if interpo
-                img = img.resize([self.input_size, self.input_size], resample=Image.NEAREST)
-                img.resize([self.input_size, self.input_size],
-                           resample=Image.BILINEAR)
-
-            img = np.array(img)
-            images.append(img)
-
-        return images
+    return images

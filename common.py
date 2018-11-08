@@ -8,9 +8,9 @@ def save_filenames_to_txt(name_list, target_path):
     """Save data set (filenames) to .txt files"""
     f = open(target_path, 'w')
     for name in name_list:
-        f.write(name)
-        f.write('\n')
+        f.write(name + '\n')
     f.close()
+    print("Save file name list to {}".format(target_path))
 
 def read_filenames_from_txt(path):
     """Load file names from pre-generated txt file"""
@@ -19,6 +19,8 @@ def read_filenames_from_txt(path):
         if not f:
             raise ValueError("Invalid path to .txt file")
         names = f.readlines()
+        names = [name.rstrip() for name in names]
+    print("Loaded {} file list from {}.".format(len(names), path))
     return names
 
 def read_filenames(self, path_to_dir, type="jpg"):
